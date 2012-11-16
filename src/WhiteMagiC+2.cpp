@@ -52,7 +52,7 @@ struct WhiteMagicStatus{
 
 class FunktorBase{
 public:
-	virtual void operator()(const string&, const string&) = 0;
+	virtual void operator()(const string&) = 0;
 	virtual ~FunktorBase(){}
 protected:
 	WhiteMagicStatus* status;
@@ -63,7 +63,7 @@ public:
 	explicit Lamp(uint8_t lampMask): lamp(lampMask){
 		status = &WhiteMagic;
 	}
-	void operator()(const string& topic, const string& payload){
+	void operator()(const string& payload){
 		stringstream valueStream(payload);
 		short value;
 		valueStream >> value;
@@ -122,7 +122,7 @@ public:
 	explicit MasterCheckbox(){
 		status = &WhiteMagic;
 	}
-	void operator()(const string& topic, const string& payload){
+	void operator()(const string& payload){
 		stringstream valueStream(payload);
 		bool value;
 		valueStream >> value;
@@ -143,7 +143,7 @@ public:
 	explicit RelativeCheckbox(){
 		status = &WhiteMagic;
 	}
-	void operator()(const string& topic, const string& payload){
+	void operator()(const string& payload){
 		stringstream valueStream(payload);
 		bool value;
 		valueStream >> value;
@@ -164,7 +164,7 @@ public:
 	explicit Power(){
 		status = &WhiteMagic;
 	}
-	void operator()(const string& topic, const string& payload){
+	void operator()(const string& payload){
 		stringstream valueStream(payload);
 		bool value;
 		valueStream >> value;
@@ -183,7 +183,7 @@ public:
 	explicit Automatic(){
 		status = &WhiteMagic;
 	}
-	void operator()(const string& topic, const string& payload){
+	void operator()(const string& payload){
 		stringstream valueStream(payload);
 		bool value;
 		valueStream >> value;
@@ -221,7 +221,7 @@ int on_message(void *context, char *topicName, int topicLen, MQTTClient_message 
     vector<string> sections = split(topic, '/');
     cout << "interesting part: " << sections[4] << endl;
     if(functions.find(sections[4]) != functions.end())
-    	(*functions[sections[4]])(topic, payload);
+    	(*functions[sections[4]])(payload);
     else
     	cout << "there is no such key" << endl;
     MQTTClient_freeMessage(&message);
@@ -301,7 +301,7 @@ int main(int argc, char* argv[]){
 			my_serial_stream.get(c);
 			message[position++] = c;
 			if(position == 2){
-				cout << "read: " << hex << static_cast<int>(message[0]) << " " << dec << static_cast<int>(message[1]) << endl;
+				cout << "read: " << hex << static_cast<short>(message[0]) << " " << dec << static_cast<short>(message[1]) << endl;
 				position = 0;
 			}
 			if(my_serial_stream.bad() || my_serial_stream.eof() || my_serial_stream.fail())
