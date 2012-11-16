@@ -1,9 +1,8 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <cstdint>
-#include <csignal>
-#include <cstdarg>
+#include <stdint.h>
+#include <signal.h>
 #include <vector>
 #include <map>
 #include <pthread.h>
