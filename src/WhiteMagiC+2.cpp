@@ -32,7 +32,7 @@ class FunktorBase;
 MQTTClient client;
 LibSerial::SerialStream my_serial_stream;
 map<string, FunktorBase*> functions;
-time_t lastSetPWM;
+time_t lastSetPWM; // avoid republishing if new pwm mqtt message was faster than the serial answer of the atmega
 bool loop = true;
 
 template <typename t>
@@ -224,12 +224,11 @@ int on_message(void *context, char *topicName, int topicLen, MQTTClient_message 
     if(functions.find(sections[4]) != functions.end())
     	(*functions[sections[4]])(payload);
     else
-    	cout << "there is no such key" << endl;
+    	cerr << "there is no such key" << endl;
     MQTTClient_freeMessage(&message);
     MQTTClient_free(topicName);
     return 1;
 }
-
 
 void handleSerialMessage(uint8_t message[2]){
 	uint8_t functionID = message[0] & 0xF0; // first 4 bits of first byte determine the function
@@ -254,8 +253,6 @@ void handleSerialMessage(uint8_t message[2]){
 		time_t now;
 		time(&now);
 		if(WhiteMagic.lamps[lamp] != message[1] &&  difftime(lastSetPWM, now) > .5){
-			cout << "different " << AnythingToStr(static_cast<short>(message[1])) << " " << AnythingToStr(static_cast<short>(WhiteMagic.lamps[lamp])) << endl;
-			WhiteMagic.lamps[lamp] = message[1];
 			payload = AnythingToStr(static_cast<short>(message[1]));
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(lamp + 1)).c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
 		}
@@ -264,7 +261,7 @@ void handleSerialMessage(uint8_t message[2]){
 }
 
 void on_connection_lost(void *context, char *cause){
-	cout << endl << "Connection lost" << "\tcause: " << cause << endl;
+	cerr << endl << "Connection lost" << "\tcause: " << cause << endl;
 }
 
 void cleanup(int sig = 0){
@@ -298,7 +295,6 @@ int main(int argc, char* argv[]){
     MQTTClient_create(&client, const_cast<char*>(string(ADDRESS).c_str()), const_cast<char*>(string(DEVICE_ID).c_str()), MQTTCLIENT_PERSISTENCE_NONE, NULL);
     connectionOptions.keepAliveInterval = 60;
     connectionOptions.cleansession = 1;
-
     MQTTClient_setCallbacks(client, NULL, on_connection_lost, on_message, on_publish);
 
     int returnCode;
@@ -332,7 +328,6 @@ int main(int argc, char* argv[]){
 	my_serial_stream.Open("/dev/ttyUSB0");
 	if(my_serial_stream.IsOpen()){
 		my_serial_stream.SetBaudRate( LibSerial::SerialStreamBuf::BAUD_19200);
-
 		uint8_t message[2], position = 0;
 		char c;
 		while(loop){
@@ -347,7 +342,7 @@ int main(int argc, char* argv[]){
 		}
 	}
 	else{
-		cout << "cannot open serial port" << endl;
+		cerr << "cannot open serial port" << endl;
 		cleanup();
 	}
 	cout << "exiting" << endl;
