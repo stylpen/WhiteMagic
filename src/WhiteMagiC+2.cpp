@@ -230,6 +230,7 @@ int on_message(void *context, char *topicName, int topicLen, MQTTClient_message 
 
 void handleSerialMessage(uint8_t message[2]){
 	uint8_t functionID = message[0] & 0xF0; // first 4 bits of first byte determine the function
+	string payload;
 	switch(functionID){
 	case SET_COUNTER:
 		cout << "set counter" << endl;
@@ -237,17 +238,17 @@ void handleSerialMessage(uint8_t message[2]){
 			WhiteMagic.counter = message[1];
 			cout << static_cast<short>(WhiteMagic.counter) << endl;
 			cout << AnythingToStr(static_cast<short>(message[1])) << endl;
-			string message = AnythingToStr(static_cast<short>(message[1]));
+			payload = AnythingToStr(static_cast<short>(message[1]));
 			cout << "here" << endl;
-			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/sensors/counter").c_str()), message.length(), static_cast<void*>(const_cast<char*>(message.c_str())), QOS, 1, NULL);
+			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/sensors/counter").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
 		}
 		break;
 	case SET_STATUS:
 		cout << "set power" << endl;
 		if(WhiteMagic.power != message[1]){
 			WhiteMagic.power = message[1];
-			string message = AnythingToStr(static_cast<short>(message[1]));
-			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/power").c_str()), message.length(), static_cast<void*>(const_cast<char*>(message.c_str())), QOS, 1, NULL);
+			payload = AnythingToStr(static_cast<short>(message[1]));
+			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/power").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
 		}
 		break;
 	case SET_PWM:
@@ -255,8 +256,8 @@ void handleSerialMessage(uint8_t message[2]){
 		short lamp = message[0] & 0x0F;
 		if(WhiteMagic.lamps[lamp] != message[1]){
 			WhiteMagic.lamps[lamp] = message[1];
-			string message = AnythingToStr(static_cast<short>(message[1]));
-			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(lamp + 1)).c_str()), message.length(), static_cast<void*>(const_cast<char*>(message.c_str())), QOS, 1, NULL);
+			payload = AnythingToStr(static_cast<short>(message[1]));
+			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(lamp + 1)).c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
 		}
 		break;
 	}
