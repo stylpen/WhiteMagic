@@ -3,6 +3,7 @@
 #include <string>
 #include <stdint.h>
 #include <signal.h>
+#include <time.h>
 #include <vector>
 #include <map>
 #include <pthread.h>
@@ -31,6 +32,7 @@ class FunktorBase;
 MQTTClient client;
 LibSerial::SerialStream my_serial_stream;
 map<string, FunktorBase*> functions;
+time_t lastSetPWM;
 bool loop = true;
 
 template <typename t>
@@ -63,6 +65,7 @@ public:
 		status = &WhiteMagic;
 	}
 	void operator()(const string& payload){
+		time(&lastSetPWM);
 		stringstream valueStream(payload);
 		short value;
 		valueStream >> value;
@@ -233,7 +236,6 @@ void handleSerialMessage(uint8_t message[2]){
 	string payload;
 	switch(functionID){
 	case SET_COUNTER:
-		cout << "set counter" << endl;
 		if(WhiteMagic.counter != message[1]){
 			WhiteMagic.counter = message[1];
 			payload = AnythingToStr(static_cast<short>(message[1]));
@@ -241,7 +243,6 @@ void handleSerialMessage(uint8_t message[2]){
 		}
 		break;
 	case SET_STATUS:
-		cout << "set power" << endl;
 		if(WhiteMagic.power != message[1]){
 			WhiteMagic.power = message[1];
 			payload = AnythingToStr(static_cast<short>(message[1]));
@@ -249,9 +250,10 @@ void handleSerialMessage(uint8_t message[2]){
 		}
 		break;
 	case SET_PWM:
-		cout << "set pwm" << endl;
 		short lamp = message[0] & 0x0F;
-		if(WhiteMagic.lamps[lamp] != message[1]){
+		time_t now;
+		time(&now);
+		if(WhiteMagic.lamps[lamp] != message[1] &&  difftime(lastSetPWM, now) > .5){
 			cout << "different " << AnythingToStr(static_cast<short>(message[1])) << " " << AnythingToStr(static_cast<short>(WhiteMagic.lamps[lamp])) << endl;
 			WhiteMagic.lamps[lamp] = message[1];
 			payload = AnythingToStr(static_cast<short>(message[1]));
@@ -277,6 +279,8 @@ void cleanup(int sig = 0){
 }
 
 int main(int argc, char* argv[]){
+	time(&lastSetPWM);
+
 	functions["Lampe 1"] = &lamp1;
 	functions["Lampe 2"] = &lamp2;
 	functions["Lampe 3"] = &lamp3;
@@ -335,7 +339,6 @@ int main(int argc, char* argv[]){
 			my_serial_stream.get(c);
 			message[position++] = c;
 			if(position == 2){
-				cout << "read: " << hex << static_cast<short>(message[0]) << " " << dec << static_cast<short>(message[1]) << endl;
 				handleSerialMessage(message);
 				position = 0;
 			}
