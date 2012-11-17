@@ -28,10 +28,9 @@ using namespace std;
 
 class FunktorBase;
 
-volatile MQTTClient_deliveryToken deliveredtoken;
 MQTTClient client;
 LibSerial::SerialStream my_serial_stream;
-map<std::string, FunktorBase*> functions;
+map<string, FunktorBase*> functions;
 bool loop = true;
 
 template <typename t>
@@ -219,15 +218,46 @@ int on_message(void *context, char *topicName, int topicLen, MQTTClient_message 
 	string payload(static_cast<char*>(message->payload), message->payloadlen);
     string topic(topicName);
     vector<string> sections = split(topic, '/');
-    cout << "interesting part: " << sections[4] << endl;
     if(functions.find(sections[4]) != functions.end())
     	(*functions[sections[4]])(payload);
     else
     	cout << "there is no such key" << endl;
     MQTTClient_freeMessage(&message);
     MQTTClient_free(topicName);
-	cout << "topic: " << topic << " payload: " << payload << endl;
     return 1;
+}
+
+
+void handleSerialMessage(uint8_t message[2]){
+	uint8_t functionID = message[0] & 0xF0; // first 4 bits of first byte determine the function
+	switch(functionID){
+	case SET_COUNTER:
+		if(WhiteMagic.counter != message[1]){
+			WhiteMagic.counter = message[1];
+			string message = AnythingToStr(static_cast<short>(message[1]));
+			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/sensors/counter").c_str()), message.length(), static_cast<void*>(const_cast<char*>(message.c_str())), QOS, 1, NULL);
+		}
+		break;
+	case SET_STATUS:
+		if(WhiteMagic.power != message[1]){
+			WhiteMagic.power = message[1];
+			string message = AnythingToStr(static_cast<short>(message[1]));
+			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/power").c_str()), message.length(), static_cast<void*>(const_cast<char*>(message.c_str())), QOS, 1, NULL);
+		}
+		break;
+	case SET_PWM:
+		 /*if self.expectedStatus["lampe" + str(ord(x[0]) & self.ID_MASK)] != ord(x[1]):
+		            #print "ungleich", self.expectedStatus["lampe" + str(ord(x[0]) & self.ID_MASK)], ord(x[1])
+		            self.expectedStatus["lampe" + str(ord(x[0]) & self.ID_MASK)] = ord(x[1])
+		            self.mqtt.publish("/devices/" + self.deviceID + "/controls/Lampe " + str((ord(x[0]) & self.ID_MASK) + 1), str(ord(x[1])), retain = True)*/
+		short lamp = message[0] & 0x0F;
+		if(WhiteMagic.lamps[lamp] != message[1]){
+			WhiteMagic.lamps[lamp] = message[1];
+			string message = AnythingToStr(static_cast<short>(message[1]));
+			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(lamp + 1)).c_str()), message.length(), static_cast<void*>(const_cast<char*>(message.c_str())), QOS, 1, NULL);
+		}
+		break;
+	}
 }
 
 void on_connection_lost(void *context, char *cause){
@@ -237,9 +267,12 @@ void on_connection_lost(void *context, char *cause){
 void cleanup(int sig = 0){
 	loop = false;
 	cout << "cleaning up" << endl;
-	my_serial_stream.Close();
-    MQTTClient_disconnect(client, 1000);
-    MQTTClient_destroy(&client);
+	if(my_serial_stream.IsOpen())
+		my_serial_stream.Close();
+	if(MQTTClient_isConnected(client))
+		MQTTClient_disconnect(client, 1000);
+	if(client)
+		MQTTClient_destroy(&client);
 }
 
 int main(int argc, char* argv[]){
@@ -301,7 +334,8 @@ int main(int argc, char* argv[]){
 			my_serial_stream.get(c);
 			message[position++] = c;
 			if(position == 2){
-				cout << "read: " << hex << static_cast<short>(message[0]) << " " << dec << static_cast<short>(message[1]) << endl;
+				//cout << "read: " << hex << static_cast<short>(message[0]) << " " << dec << static_cast<short>(message[1]) << endl;
+				handleSerialMessage(message);
 				position = 0;
 			}
 			if(my_serial_stream.bad() || my_serial_stream.eof() || my_serial_stream.fail())
