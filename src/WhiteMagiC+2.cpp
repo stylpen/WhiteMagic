@@ -236,10 +236,7 @@ void handleSerialMessage(uint8_t message[2]){
 		cout << "set counter" << endl;
 		if(WhiteMagic.counter != message[1]){
 			WhiteMagic.counter = message[1];
-			cout << static_cast<short>(WhiteMagic.counter) << endl;
-			cout << AnythingToStr(static_cast<short>(message[1])) << endl;
 			payload = AnythingToStr(static_cast<short>(message[1]));
-			cout << "here" << endl;
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/sensors/counter").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
 		}
 		break;
@@ -255,6 +252,7 @@ void handleSerialMessage(uint8_t message[2]){
 		cout << "set pwm" << endl;
 		short lamp = message[0] & 0x0F;
 		if(WhiteMagic.lamps[lamp] != message[1]){
+			cout << "different " << AnythingToStr(static_cast<short>(message[1])) << " " << AnythingToStr(static_cast<short>(WhiteMagic.lamps[lamp])) << endl;
 			WhiteMagic.lamps[lamp] = message[1];
 			payload = AnythingToStr(static_cast<short>(message[1]));
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(lamp + 1)).c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
