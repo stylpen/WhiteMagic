@@ -232,6 +232,7 @@ void handleSerialMessage(uint8_t message[2]){
 	uint8_t functionID = message[0] & 0xF0; // first 4 bits of first byte determine the function
 	switch(functionID){
 	case SET_COUNTER:
+		cout << "set counter" << endl;
 		if(WhiteMagic.counter != message[1]){
 			WhiteMagic.counter = message[1];
 			string message = AnythingToStr(static_cast<short>(message[1]));
@@ -239,6 +240,7 @@ void handleSerialMessage(uint8_t message[2]){
 		}
 		break;
 	case SET_STATUS:
+		cout << "set power" << endl;
 		if(WhiteMagic.power != message[1]){
 			WhiteMagic.power = message[1];
 			string message = AnythingToStr(static_cast<short>(message[1]));
@@ -246,10 +248,7 @@ void handleSerialMessage(uint8_t message[2]){
 		}
 		break;
 	case SET_PWM:
-		 /*if self.expectedStatus["lampe" + str(ord(x[0]) & self.ID_MASK)] != ord(x[1]):
-		            #print "ungleich", self.expectedStatus["lampe" + str(ord(x[0]) & self.ID_MASK)], ord(x[1])
-		            self.expectedStatus["lampe" + str(ord(x[0]) & self.ID_MASK)] = ord(x[1])
-		            self.mqtt.publish("/devices/" + self.deviceID + "/controls/Lampe " + str((ord(x[0]) & self.ID_MASK) + 1), str(ord(x[1])), retain = True)*/
+		cout << "set pwm" << endl;
 		short lamp = message[0] & 0x0F;
 		if(WhiteMagic.lamps[lamp] != message[1]){
 			WhiteMagic.lamps[lamp] = message[1];
@@ -334,7 +333,7 @@ int main(int argc, char* argv[]){
 			my_serial_stream.get(c);
 			message[position++] = c;
 			if(position == 2){
-				//cout << "read: " << hex << static_cast<short>(message[0]) << " " << dec << static_cast<short>(message[1]) << endl;
+				cout << "read: " << hex << static_cast<short>(message[0]) << " " << dec << static_cast<short>(message[1]) << endl;
 				handleSerialMessage(message);
 				position = 0;
 			}
