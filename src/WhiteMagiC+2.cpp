@@ -235,7 +235,10 @@ void handleSerialMessage(uint8_t message[2]){
 		cout << "set counter" << endl;
 		if(WhiteMagic.counter != message[1]){
 			WhiteMagic.counter = message[1];
+			cout << static_cast<short>(WhiteMagic.counter) << endl;
+			cout << AnythingToStr(static_cast<short>(message[1])) << endl;
 			string message = AnythingToStr(static_cast<short>(message[1]));
+			cout << "here" << endl;
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/sensors/counter").c_str()), message.length(), static_cast<void*>(const_cast<char*>(message.c_str())), QOS, 1, NULL);
 		}
 		break;
