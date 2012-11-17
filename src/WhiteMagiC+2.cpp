@@ -238,7 +238,7 @@ void handleSerialMessage(uint8_t message[2]){
 		if(WhiteMagic.counter != message[1]){
 			WhiteMagic.counter = message[1];
 			payload = AnythingToStr(static_cast<short>(message[1]));
-			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/sensors/counter").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
+			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/persons").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
 		}
 		break;
 	case SET_STATUS:
@@ -313,8 +313,8 @@ int main(int argc, char* argv[]){
     MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 2/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
     MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 3/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
     MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 4/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
-    payload = "count";
-    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/sensors/counter/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
+    payload = "text";
+    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/persons/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
 
     MQTTClient_subscribe(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/power/on").c_str()), 0);
     MQTTClient_subscribe(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 1/on").c_str()), 0);
