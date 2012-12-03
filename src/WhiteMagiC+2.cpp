@@ -338,8 +338,10 @@ int main(int argc, char* argv[]){
 			my_serial_stream.get(c);
 			message[position++] = c;
 			if(position == 2){
-				if(handleSerialMessage(message))
+				if(handleSerialMessage(message)){
 					my_serial_stream.get(c); // we are out of sync - skip one byte
+					cout << "there is no opcode for message: " << hex << message[0] << hex << message[1] << dec << endl;
+				}
 				position = 0;
 			}
 			if(my_serial_stream.bad() || my_serial_stream.eof() || my_serial_stream.fail())
