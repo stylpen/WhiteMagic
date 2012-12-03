@@ -230,7 +230,7 @@ int on_message(void *context, char *topicName, int topicLen, MQTTClient_message 
     return 1;
 }
 
-void handleSerialMessage(uint8_t message[2]){
+int handleSerialMessage(uint8_t message[2]){
 	uint8_t functionID = message[0] & 0xF0; // first 4 bits of first byte determine the function
 	string payload;
 	switch(functionID){
@@ -248,7 +248,7 @@ void handleSerialMessage(uint8_t message[2]){
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/power").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
 		}
 		break;
-	case SET_PWM:
+	case SET_PWM:{
 		short lamp = message[0] & 0x0F;
 		time_t now;
 		time(&now);
@@ -258,6 +258,10 @@ void handleSerialMessage(uint8_t message[2]){
 		}
 		break;
 	}
+	default:
+		return 1;
+	}
+	return 0;
 }
 
 void on_connection_lost(void *context, char *cause){
@@ -334,7 +338,8 @@ int main(int argc, char* argv[]){
 			my_serial_stream.get(c);
 			message[position++] = c;
 			if(position == 2){
-				handleSerialMessage(message);
+				if(handleSerialMessage(message))
+					my_serial_stream.get(c); // we are out of sync - skip one byte
 				position = 0;
 			}
 			if(my_serial_stream.bad() || my_serial_stream.eof() || my_serial_stream.fail())
