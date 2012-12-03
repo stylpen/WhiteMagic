@@ -78,27 +78,30 @@ public:
 		uint8_t message[2];
 		message[0] = SET_PWM | lamp;
 		message[1] = value;
-		my_serial_stream.write(reinterpret_cast<const char *>(message), 2);
+		message[2] = 0;
+		my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
 		string answer = AnythingToStr(value);
 		MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(static_cast<short>(lamp + 1))).c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
 		status->lamps[lamp] = value;
 	}
 protected:
 	void handleMaster(uint8_t value){
-		uint8_t message[2];
+		uint8_t message[3];
 		message[1] = value;
+		message[2] = 0;
 		string answer = AnythingToStr(static_cast<short>(value));
 		for(short i = 0; i < 4; ++i){
 			if(i == lamp)
 				continue;
 			message[0] = SET_PWM | i;
-			my_serial_stream.write(reinterpret_cast<const char *>(message), 2);
+			my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
 			status->lamps[i] = value;
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(i + 1)).c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
 		}
 	}
 	void handleRelative(uint8_t value){
-		uint8_t message[2];
+		uint8_t message[3];
+		message[2] = 0;
 		short relativeValue;
 		string answer;
 		short offset = value - status->lamps[lamp];
@@ -110,7 +113,7 @@ protected:
 			relativeValue = relativeValue < 0 ? 0 : relativeValue;
 			message[0] = SET_PWM | i;
 			message[1] = relativeValue;
-			my_serial_stream.write(reinterpret_cast<const char *>(message), 2);
+			my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
 			status->lamps[i] = relativeValue;
 			answer = AnythingToStr(relativeValue);
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(i + 1)).c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
@@ -170,10 +173,11 @@ public:
 		stringstream valueStream(payload);
 		bool value;
 		valueStream >> value;
-		uint8_t message[2];
+		uint8_t message[3];
 		message[0] = SET_STATUS;
 		message[1] = value;
-		my_serial_stream.write(reinterpret_cast<const char *>(message), 2);
+		message[2] = 0;
+		my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
 		string answer = AnythingToStr(value);
 		status->power = value;
 		MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/power").c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
@@ -189,10 +193,11 @@ public:
 		stringstream valueStream(payload);
 		bool value;
 		valueStream >> value;
-		uint8_t message[2];
+		uint8_t message[3];
 		message[0] = SET_AUTO;
 		message[1] = value;
-		my_serial_stream.write(reinterpret_cast<const char *>(message), 2);
+		message[2] = 0;
+		my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
 		string answer = AnythingToStr(value);
 		status->automatic = value;
 		MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/automatic").c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
@@ -331,7 +336,7 @@ int main(int argc, char* argv[]){
 
 	my_serial_stream.Open("/dev/ttyUSB0");
 	if(my_serial_stream.IsOpen()){
-		my_serial_stream.SetBaudRate( LibSerial::SerialStreamBuf::BAUD_38400);
+		my_serial_stream.SetBaudRate( LibSerial::SerialStreamBuf::BAUD_57600);
 		uint8_t message[2], position = 0;
 		char c;
 		while(loop){
