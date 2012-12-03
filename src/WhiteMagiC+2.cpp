@@ -11,8 +11,8 @@
 #include <SerialStream.h>
 
 // redefinition because original was in C style and don't work here in C++
-#define MQTTClient_message_initializer   { {'M','Q','T','M'}, 0, 0, NULL, 0, 0, 0, 0 }
-#define MQTTClient_connectOptions_initializer   { {'M','Q','T','C'}, 0, 60, 1, 1, NULL, NULL, NULL, 30, 20 }
+#define MQTTClient_message_initializer   {{'M','Q','T','M'}, 0, 0, NULL, 0, 0, 0, 0 }
+#define MQTTClient_connectOptions_initializer   {{'M','Q','T','C'}, 0, 60, 1, 1, NULL, NULL, NULL, 30, 20 }
 
 // MQTT settings
 #define ADDRESS     "tcp://localhost:1883"
@@ -34,6 +34,7 @@ LibSerial::SerialStream my_serial_stream;
 map<string, FunktorBase*> functions;
 time_t lastSetPWM; // avoid republishing if new pwm mqtt message was faster than the serial answer of the atmega
 bool loop = true;
+pthread_mutex_t serialMutex;
 
 template <typename t>
 string AnythingToStr(t value){
@@ -75,12 +76,12 @@ public:
 			handleMaster(value);
 		if(status->relative)
 			handleRelative(value);
-		uint8_t message[2];
+		uint8_t message[3];
 		message[0] = SET_PWM | lamp;
 		message[1] = value;
 		message[2] = 0;
 		my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
-		string answer = AnythingToStr(value);
+		string answer = AnythingToStr(static_cast<short>(value));
 		MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(static_cast<short>(lamp + 1))).c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
 		status->lamps[lamp] = value;
 	}
@@ -115,7 +116,7 @@ protected:
 			message[1] = relativeValue;
 			my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
 			status->lamps[i] = relativeValue;
-			answer = AnythingToStr(relativeValue);
+			answer = AnythingToStr(static_cast<short>(relativeValue));
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(i + 1)).c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
 		}
 	}
@@ -235,7 +236,7 @@ int on_message(void *context, char *topicName, int topicLen, MQTTClient_message 
     return 1;
 }
 
-int handleSerialMessage(uint8_t message[2]){
+void handleSerialMessage(uint8_t message[2]){
 	uint8_t functionID = message[0] & 0xF0; // first 4 bits of first byte determine the function
 	string payload;
 	switch(functionID){
@@ -253,7 +254,7 @@ int handleSerialMessage(uint8_t message[2]){
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/power").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
 		}
 		break;
-	case SET_PWM:{
+	case SET_PWM:
 		short lamp = message[0] & 0x0F;
 		time_t now;
 		time(&now);
@@ -263,10 +264,6 @@ int handleSerialMessage(uint8_t message[2]){
 		}
 		break;
 	}
-	default:
-		return 1;
-	}
-	return 0;
 }
 
 void on_connection_lost(void *context, char *cause){
@@ -282,10 +279,12 @@ void cleanup(int sig = 0){
 		MQTTClient_disconnect(client, 1000);
 	if(client)
 		MQTTClient_destroy(&client);
+	pthread_mutex_destroy(&serialMutex);
 }
 
 int main(int argc, char* argv[]){
 	time(&lastSetPWM);
+	pthread_mutex_init(&serialMutex, NULL);
 
 	functions["Lampe 1"] = &lamp1;
 	functions["Lampe 2"] = &lamp2;
@@ -337,17 +336,15 @@ int main(int argc, char* argv[]){
 	my_serial_stream.Open("/dev/ttyUSB0");
 	if(my_serial_stream.IsOpen()){
 		my_serial_stream.SetBaudRate( LibSerial::SerialStreamBuf::BAUD_57600);
-		uint8_t message[2], position = 0;
+		uint8_t message[2];
+		short position = 0;
 		char c;
 		while(loop){
 			my_serial_stream.get(c);
 			if(position || c){
 				message[position++] = c;
 				if(position == 2){
-					if(handleSerialMessage(message)){
-						my_serial_stream.get(c); // we are out of sync - skip one byte
-						cout << "there is no opcode for message: " << hex << message[0] << hex << message[1] << dec << endl;
-					}
+					handleSerialMessage(message);
 					position = 0;
 				}
 				if(my_serial_stream.bad() || my_serial_stream.eof() || my_serial_stream.fail())
