@@ -6,9 +6,11 @@
 #include <time.h>
 #include <vector>
 #include <map>
+#include <list>
 #include <pthread.h>
 #include <MQTTClient.h>
 #include <SerialStream.h>
+#include <list>
 
 // redefinition because original was in C style and don't work here in C++
 #define MQTTClient_message_initializer   {{'M','Q','T','M'}, 0, 0, NULL, 0, 0, 0, 0 }
@@ -21,13 +23,14 @@
 
 // function bitmask constants
 #define SET_COUNTER 0x80 // bit 8
-#define SET_STATUS 0x40 // bit 7
+#define SET_POWER 0x40 // bit 7
 #define SET_PWM 0x20 // bit 6
 #define SET_AUTO 0x10 // bit 5
 
 using namespace std;
 
 class FunktorBase;
+class SerialMessage;
 
 MQTTClient client;
 LibSerial::SerialStream my_serial_stream;
@@ -60,6 +63,20 @@ protected:
 	WhiteMagicStatus* status;
 };
 
+class SerialMessage{
+	friend ostream& operator<<(ostream&, const SerialMessage&);
+public:
+	SerialMessage(uint8_t opCode, uint8_t value): message({opCode, value, 0}){
+	}
+private:
+	uint8_t message[3];
+};
+
+ostream& operator<<(ostream& os, const SerialMessage& message){
+	cerr << "send: " << hex << (int)message.message[0] << hex << (int)message.message[1] << dec << endl;
+	return os.write(reinterpret_cast<const char *>(message.message), 3);
+}
+
 class Lamp: public FunktorBase{
 public:
 	explicit Lamp(uint8_t lampMask): lamp(lampMask){
@@ -76,33 +93,27 @@ public:
 			handleMaster(value);
 		if(status->relative)
 			handleRelative(value);
-		uint8_t message[3];
-		message[0] = SET_PWM | lamp;
-		message[1] = value;
-		message[2] = 0;
-		my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
+		pthread_mutex_lock(&serialMutex);
+		my_serial_stream << SerialMessage(SET_PWM | lamp, value);
+		pthread_mutex_unlock(&serialMutex);
 		string answer = AnythingToStr(static_cast<short>(value));
 		MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(static_cast<short>(lamp + 1))).c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
 		status->lamps[lamp] = value;
 	}
 protected:
 	void handleMaster(uint8_t value){
-		uint8_t message[3];
-		message[1] = value;
-		message[2] = 0;
 		string answer = AnythingToStr(static_cast<short>(value));
 		for(short i = 0; i < 4; ++i){
 			if(i == lamp)
 				continue;
-			message[0] = SET_PWM | i;
-			my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
+			pthread_mutex_lock(&serialMutex);
+			my_serial_stream << SerialMessage(SET_PWM | i, value);
+			pthread_mutex_unlock(&serialMutex);
 			status->lamps[i] = value;
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(i + 1)).c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
 		}
 	}
 	void handleRelative(uint8_t value){
-		uint8_t message[3];
-		message[2] = 0;
 		short relativeValue;
 		string answer;
 		short offset = value - status->lamps[lamp];
@@ -112,9 +123,9 @@ protected:
 			relativeValue = status->lamps[i] + offset;
 			relativeValue = relativeValue > 255 ? 255 : relativeValue;
 			relativeValue = relativeValue < 0 ? 0 : relativeValue;
-			message[0] = SET_PWM | i;
-			message[1] = relativeValue;
-			my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
+			pthread_mutex_lock(&serialMutex);
+			my_serial_stream << SerialMessage(SET_PWM | i, relativeValue);
+			pthread_mutex_unlock(&serialMutex);
 			status->lamps[i] = relativeValue;
 			answer = AnythingToStr(static_cast<short>(relativeValue));
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe ").append(AnythingToStr(i + 1)).c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
@@ -174,11 +185,7 @@ public:
 		stringstream valueStream(payload);
 		bool value;
 		valueStream >> value;
-		uint8_t message[3];
-		message[0] = SET_STATUS;
-		message[1] = value;
-		message[2] = 0;
-		my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
+		my_serial_stream << SerialMessage(SET_POWER, value);
 		string answer = AnythingToStr(value);
 		status->power = value;
 		MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/power").c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
@@ -194,11 +201,7 @@ public:
 		stringstream valueStream(payload);
 		bool value;
 		valueStream >> value;
-		uint8_t message[3];
-		message[0] = SET_AUTO;
-		message[1] = value;
-		message[2] = 0;
-		my_serial_stream.write(reinterpret_cast<const char *>(message), 3);
+		my_serial_stream << SerialMessage(SET_AUTO, value);
 		string answer = AnythingToStr(value);
 		status->automatic = value;
 		MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/automatic").c_str()), answer.length(), static_cast<void*>(const_cast<char*>(answer.c_str())), QOS, 1, NULL);
@@ -247,7 +250,7 @@ void handleSerialMessage(uint8_t message[2]){
 			MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/persons").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
 		}
 		break;
-	case SET_STATUS:
+	case SET_POWER:
 		if(WhiteMagic.power != message[1]){
 			WhiteMagic.power = message[1];
 			payload = AnythingToStr(static_cast<short>(message[1]));
@@ -335,7 +338,7 @@ int main(int argc, char* argv[]){
 
 	my_serial_stream.Open("/dev/ttyUSB0");
 	if(my_serial_stream.IsOpen()){
-		my_serial_stream.SetBaudRate( LibSerial::SerialStreamBuf::BAUD_57600);
+		my_serial_stream.SetBaudRate( LibSerial::SerialStreamBuf::BAUD_4800);
 		uint8_t message[2];
 		short position = 0;
 		char c;
@@ -346,6 +349,7 @@ int main(int argc, char* argv[]){
 				if(position == 2){
 					handleSerialMessage(message);
 					position = 0;
+					cerr << "recv: " << hex << (int)message[0] << hex << (int)message[1] << dec << endl;
 				}
 				if(my_serial_stream.bad() || my_serial_stream.eof() || my_serial_stream.fail())
 					my_serial_stream.clear();
