@@ -72,7 +72,9 @@ private:
 };
 
 ostream& operator<<(ostream& os, const SerialMessage& message){
+#ifdef DEBUG
 	cerr << "send: " << hex << (int)message.message[0] << hex << (int)message.message[1] << dec << endl;
+#endif
 	return os.write(reinterpret_cast<const char *>(message.message), 3);
 }
 
@@ -348,7 +350,9 @@ int main(int argc, char* argv[]){
 				if(position == 2){
 					handleSerialMessage(message);
 					position = 0;
+#ifdef DEBUG
 					cerr << "recv: " << hex << (int)message[0] << hex << (int)message[1] << dec << endl;
+#endif
 				}
 				if(my_serial_stream.bad() || my_serial_stream.eof() || my_serial_stream.fail())
 					my_serial_stream.clear();
