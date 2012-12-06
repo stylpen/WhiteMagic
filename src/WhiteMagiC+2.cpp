@@ -6,7 +6,6 @@
 #include <time.h>
 #include <vector>
 #include <map>
-#include <list>
 #include <pthread.h>
 #include <MQTTClient.h>
 #include <SerialStream.h>
