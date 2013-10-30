@@ -11,10 +11,6 @@
 #include <SerialStream.h>
 #include <list>
 
-// redefinition because original was in C style and don't work here in C++
-#define MQTTClient_message_initializer   {{'M','Q','T','M'}, 0, 0, NULL, 0, 0, 0, 0 }
-#define MQTTClient_connectOptions_initializer   {{'M','Q','T','C'}, 0, 60, 1, 1, NULL, NULL, NULL, 30, 20 }
-
 // MQTT settings
 #define ADDRESS     "tcp://localhost:1883"
 #define DEVICE_ID   "WhiteMagic1"
@@ -65,7 +61,7 @@ protected:
 class SerialMessage{
 	friend ostream& operator<<(ostream&, const SerialMessage&);
 public:
-	SerialMessage(uint8_t opCode, uint8_t value): message({opCode, value, 0}){
+	SerialMessage(uint8_t opCode, uint8_t value): message{opCode, value, 0}{
 	}
 private:
 	uint8_t message[3];
@@ -316,17 +312,17 @@ int main(int argc, char* argv[]){
         return -1;
     }
     string payload("switch");
-    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/power/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
-    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/automatic/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
-    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/master/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
-    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/relative/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
+    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/power/meta/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
+    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/automatic/meta/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
+    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/master/meta/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
+    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/relative/meta/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
     payload = "range";
-    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 1/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
-    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 2/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
-    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 3/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
-    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 4/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
+    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 1/meta/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
+    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 2/meta/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
+    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 3/meta/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
+    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 4/meta/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
     payload = "text";
-    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/persons/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
+    MQTTClient_publish(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/persons/meta/type").c_str()), payload.length(), static_cast<void*>(const_cast<char*>(payload.c_str())), QOS, 1, NULL);
 
     MQTTClient_subscribe(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/power/on").c_str()), 0);
     MQTTClient_subscribe(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/Lampe 1/on").c_str()), 0);
@@ -337,9 +333,12 @@ int main(int argc, char* argv[]){
    	MQTTClient_subscribe(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/master/on").c_str()), 0);
    	MQTTClient_subscribe(client, const_cast<char*>(string("/devices/").append(DEVICE_ID).append("/controls/relative/on").c_str()), 0);
 
+	
 	my_serial_stream.Open("/dev/ttyUSB0");
 	if(my_serial_stream.IsOpen()){
-		my_serial_stream.SetBaudRate( LibSerial::SerialStreamBuf::BAUD_4800);
+		my_serial_stream.SetBaudRate(LibSerial::SerialStreamBuf::BAUD_4800);
+		my_serial_stream.SetCharSize(LibSerial::SerialStreamBuf::CHAR_SIZE_8);
+		my_serial_stream.SetNumOfStopBits(1);
 		uint8_t message[2];
 		short position = 0;
 		char c;
